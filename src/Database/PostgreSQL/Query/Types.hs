@@ -32,7 +32,6 @@ import Control.Monad.State.Class ( MonadState )
 import Control.Monad.Trans
 import Control.Monad.Trans.Cont
 import Control.Monad.Trans.Control
-import Control.Monad.Trans.Either
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Maybe
@@ -84,7 +83,7 @@ instance ToSqlBuilder Qp where
 newtype InetText = InetText
     { unInetText :: T.Text
     } deriving ( IsString, Eq, Ord, Read, Show
-               , Typeable, Monoid, ToField )
+               , Typeable, Semigroup, Monoid, ToField )
 
 
 instance FromField InetText where
@@ -131,7 +130,7 @@ FN ["user","name"]
 -}
 
 newtype FN = FN [Text]
-    deriving (Ord, Eq, Show, Monoid, Typeable, Generic)
+    deriving (Ord, Eq, Show, Semigroup, Monoid, Typeable, Generic)
 
 $(deriveLift ''FN)
 
@@ -183,7 +182,7 @@ UPDATE tbl SET name = 'name', size = 10, lenght = 20
 
 newtype MarkedRow = MR
     { unMR :: [(FN, SqlBuilder)]
-    } deriving (Monoid, Typeable, Generic)
+    } deriving (Semigroup, Monoid, Typeable, Generic)
 
 class ToMarkedRow a where
     -- | generate list of pairs (field name, field value)
@@ -216,12 +215,6 @@ type MonadPostgres m = (HasPostgres m, MonadLogger m)
 
 class (MonadBase IO m) => HasPostgres m where
     withPGConnection :: (Connection -> m a) -> m a
-
-instance (HasPostgres m) => HasPostgres (EitherT e m) where
-    withPGConnection action = do
-        EitherT $ withPGConnection $ \con -> do
-            runEitherT $ action con
-    {-# INLINABLE withPGConnection #-}
 
 instance (HasPostgres m) => HasPostgres (ExceptT e m) where
     withPGConnection action = do
@@ -288,7 +281,6 @@ instance (MonadBase IO m, MonadBaseControl IO m, HGettable els (Pool Connection)
 -- connection from e.g. connection pool is not.
 class TransactionSafe (m :: * -> *)
 
-instance (TransactionSafe m) => TransactionSafe (EitherT e m)
 instance (TransactionSafe m) => TransactionSafe (ExceptT e m)
 instance (TransactionSafe m) => TransactionSafe (IdentityT m)
 instance (TransactionSafe m) => TransactionSafe (MaybeT m)
